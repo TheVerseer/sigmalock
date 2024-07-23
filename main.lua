@@ -7,19 +7,14 @@ local defaults = {
 	["AimSwitchBind"] = Enum.KeyCode.RightShift,
 
 	["FreeForAll"] = true,
-	["TeamsToHide"] = {},
+	["TeamsToSkip"] = {},
 
 	["AimAt"] = "Head",
 	["AimAtOptions"] = {"Head", "Torso", "UpperTorso"},
 
 	["ESP"] = false,
-	["ESPTransparency"] = 0.5,
-	["ESPColor"] = "Red",
-	["ESPColorOptions"] = {
-		{"Red", 		Color3.new(100,0,0)}, 
-		{"Green", 		Color3.new(0,100,0)}, 
-		{"Blue", 		Color3.new(0,0,100)},
-	}
+	
+	["GuiTransparency"] = 0.4
 }
 
 --------------------------------------------------------------------------------------
@@ -60,7 +55,6 @@ local disabledColor = Color3.fromRGB(100, 10, 10)
 
 local currentAimAtPart = 0
 local currentESPColor = 0
-local currentESPContainer = nil
 
 local ti = TweenInfo.new(0.1, Enum.EasingStyle.Exponential)
 
@@ -126,18 +120,43 @@ local function ClearModelOfScripts(m)
 	end
 end
 
-local function AddPlayerToESP(plr)
-	if plr==player or not plr.Character or not data.ESP then return end
+local function DisabledESP(skip)
+	for _, esp in pairs(gui.ESP.Players:GetChildren()) do
+		if esp:IsA("Folder") then
+			if not plrs[esp.Name] or skip then
+				esp:Destroy()
+			end
+		end
+	end
+end
 
-	if not table.find(data.TeamsToHide, plr.Team) or data.FreeForAll then
-		pcall(function()
-			plr.Character.Archivable = true
-			local char = plr.Character:Clone()
-			ClearModelOfScripts(char)
+local function EnabledESP()
+	for _, plr in pairs(plrs:GetPlayers()) do
+		if plr ~= player and plr.Character then
+			if not table.find(data.TeamsToSkip, plr.Team) or data.FreeForAll then
+				pcall(function()
+					local espFolder
 
-			char.Parent = gui.ESP
-			plr.Character.Archivable = false
-		end)
+					if gui.ESP.Players[plr.Name] then
+						espFolder = gui.ESP.Players[plr.Name]
+					else
+						espFolder = gui.ESP.Template:Clone()
+						espFolder.ESP_Billboard.Title.Text = plr.Name
+						espFolder.ESP_Billboard.Enabled = true
+						espFolder.Name = plr.Name
+						espFolder.Parent = gui.ESP.Players
+					end
+
+					espFolder.ESP_Highlight.FillColor = plr.TeamColor.Color
+					espFolder.ESP_Highlight.OutlineColor = plr.TeamColor.Color
+					espFolder.ESP_Billboard.Title.TextColor = plr.TeamColor.Color
+					espFolder.ESP_Billboard.Title.Stroke.Color = plr.TeamColor.Color
+
+					espFolder.ESP_Highlight.Adornee = plr.Character
+					espFolder.ESP_Billboard.Adornee = plr.Character
+				end)
+			end
+		end
 	end
 end
 
@@ -174,52 +193,29 @@ local function CycleAimPart()
 	end
 
 	data.AimAt = data.AimAtOptions[currentAimAtPart]
-	gui.Info.AimAt.Text = "AimAt: "..data.AimAt
-end
-
-local function CycleESPColor()
-	if currentESPColor+1 > #data.ESPColorOptions then 
-		currentESPColor = 1 
-	else
-		currentESPColor+=1
-	end
-
-	local clr = data.ESPColorOptions[currentESPColor]
-
-	currentESPContainer = clr
-	data.ESPColor = clr[1]
-end
-
-local function UpdateESPSettings()
-	task.spawn(function()
-		gui.ESP.Visible = data.ESP
-		ts:Create(gui.ESP, ti, {ImageTransparency = data.ESPTransparency}):Play()
-		ts:Create(gui.ESP, ti, {Ambient = currentESPContainer[2]}):Play()
-	end)
 end
 
 local function UpdateESPMain()
-	gui.ESP:ClearAllChildren()
-	gui.ESP.CurrentCamera = curCam
-	gui.Info.ESP.Text = "ESP: "..(data.ESP and "On" or "Off")
-
-	for _, plr in pairs(plrs:GetPlayers()) do
-		AddPlayerToESP(plr)
+	if data.ESP then
+		EnabledESP()
+	else
+		DisabledESP(true)
 	end
+	
+	DisabledESP()
 end
 
-local function UpdateLock()
-	gui.Main.DisabledWarning.Text = disabledText
-end
 
 local function EnableLock(target)
-	local aim = target.Character:FindFirstChild(data.AimAt)
-	if aim then curCam.CoordinateFrame = CFrame.new(curCam.CoordinateFrame.Position, aim.CFrame.Position) end
+	if not table.find(data.TeamsToSkip, target.Team) or data.FreeForAll then
+		local aim = target.Character:FindFirstChild(data.AimAt)
+		if aim then curCam.CoordinateFrame = CFrame.new(curCam.CoordinateFrame.Position, aim.CFrame.Position) end
 
-	ts:Create(gui.Main, ti, {BackgroundColor3 = enabledColor}):Play()
-	gui.Main.Info.Text = target.Name
-	ToggleLabel(gui.Main.Target, true)
-	ToggleLabel(gui.Main.DisabledWarning, false)
+		ts:Create(gui.Main, ti, {BackgroundColor3 = enabledColor}):Play()
+		gui.Main.Info.Text = target.Name
+		ToggleLabel(gui.Main.Target, true)
+		ToggleLabel(gui.Main.DisabledWarning, false)
+	end
 end
 
 local function DisableLock()
@@ -240,13 +236,10 @@ end
 --------------------------------------------------------------------------------------
 
 local function RunESP()
-	UpdateESPSettings()
 	UpdateESPMain()
 end
 
 local function RunLock()
-	UpdateLock()
-
 	if uis:IsKeyDown(data.LockBind) then
 		CheckLock()
 	else
@@ -254,12 +247,23 @@ local function RunLock()
 	end
 end
 
+
+local function RunGui()
+	gui.Main.DisabledWarning.Text = disabledText
+	gui.Info.AimAt.Text = "AimAt: "..data.AimAt
+	gui.Info.ESP.Text = "ESP: "..(data.ESP and "On" or "Off")
+	gui.Info.FreeForAll.Text = "FFA: "..(data.FreeForAll and "On" or "Off")
+	
+	for _, frame in pairs(gui:GetChildren()) do
+		if frame:IsA("Frame") and frame.BackgroundTransparency ~= data.GuiTransparency then
+			ts:Create(frame, ti, {BackgroundTransparency = data.GuiTransparency}):Play()
+		end
+	end
+end
+
 --------------------------------------------------------------------------------------
 
 CycleAimPart()
-CycleESPColor()
-
-
 
 --if cgui:FindFirstChild(gui.Name) then
 --	cgui:FindFirstChild(gui.Name):Destroy()
@@ -272,7 +276,6 @@ uis.InputBegan:connect(function(input, gm)
 		CycleAimPart()
 	end
 	if input.KeyCode == data.ESPBind then
-		CycleESPColor()
 		data.ESP = not data.ESP
 	end
 end)
@@ -280,4 +283,5 @@ end)
 runs.Heartbeat:connect(function()
 	RunLock()
 	RunESP()
+	RunGui()
 end)
