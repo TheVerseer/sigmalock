@@ -1,16 +1,3 @@
-_G._Aim = {
-	["LockBind"] = Enum.KeyCode.LeftShift,
-	["ESPBind"] = Enum.KeyCode.LeftAlt,
-	["AimSwitchBind"] = Enum.KeyCode.RightShift,
-	
-	["FreeForAll"] = true,
-	
-	["AimAt"] = "Head",
-	
-	["ESP"] = true,
-	["ESPTransparency"] = 0.5,
-}
-
 local gui = game:GetObjects('rbxassetid://18622836850')[1]
 gui.Parent = game.Players.LocalPlayer.PlayerGui
 
