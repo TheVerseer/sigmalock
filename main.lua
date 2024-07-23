@@ -127,7 +127,7 @@ local function ClearModelOfScripts(m)
 end
 
 local function AddPlayerToESP(plr)
-	if plr==player or not plr.Character then return end
+	if plr==player or not plr.Character or not data.ESP then return end
 
 	if not table.find(data.TeamsToHide, plr.Team) or data.FreeForAll then
 		pcall(function()
