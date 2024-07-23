@@ -174,7 +174,7 @@ local function CycleAimPart()
 	end
 
 	data.AimAt = data.AimAtOptions[currentAimAtPart]
-	gui.AimAt.Title.Text = "AimAt: "..data.AimAt
+	gui.Info.AimAt.Text = "AimAt: "..data.AimAt
 end
 
 local function CycleESPColor()
