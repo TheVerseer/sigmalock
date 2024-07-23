@@ -208,7 +208,7 @@ local function EnableLock(target)
 		if aim then curCam.CoordinateFrame = CFrame.new(curCam.CoordinateFrame.Position, aim.CFrame.Position) end
 
 		ts:Create(gui.Main, ti, {BackgroundColor3 = enabledColor}):Play()
-		gui.Main.Info.Text = target.Name
+		gui.Main.Target.Text = target.Name
 		ToggleLabel(gui.Main.Target, true)
 		ToggleLabel(gui.Main.DisabledWarning, false)
 	end
