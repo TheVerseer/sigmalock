@@ -1,18 +1,18 @@
 local gui = game:GetObjects('rbxassetid://18622836850')[1]
 gui.Parent = game.Players.LocalPlayer.PlayerGui
 
-local defaults= {
+local defaults = {
 	["LockBind"] = Enum.KeyCode.LeftShift,
 	["ESPBind"] = Enum.KeyCode.LeftAlt,
 	["AimSwitchBind"] = Enum.KeyCode.RightShift,
-	
+
 	["FreeForAll"] = true,
 	["TeamsToHide"] = {},
-	
+
 	["AimAt"] = "Head",
 	["AimAtOptions"] = {"Head", "Torso", "UpperTorso"},
-	
-	["ESP"] = true,
+
+	["ESP"] = false,
 	["ESPTransparency"] = 0.5,
 	["ESPColor"] = "Red",
 	["ESPColorOptions"] = {
@@ -72,7 +72,7 @@ local function GetNearestPlayerToMouse()
 
 	for i, v in pairs(game.Players:GetPlayers()) do
 		if v == player then continue end
-		
+
 		local aim = v.Character:FindFirstChild(data.AimAt)
 		if aim ~= nil then
 			if data.FreeForAll then
@@ -166,13 +166,13 @@ local function CycleAimPart()
 			currentAimAtPart+=1
 		end
 	end
-	
+
 	add()
-	
+
 	if not player.Character:FindFirstChild(data.AimAtOptions[currentAimAtPart]) then 
 		repeat add() until player.Character:FindFirstChild(data.AimAtOptions[currentAimAtPart])
 	end
-	
+
 	data.AimAt = data.AimAtOptions[currentAimAtPart]
 	gui.AimAt.Title.Text = "AimAt: "..data.AimAt
 end
@@ -183,9 +183,9 @@ local function CycleESPColor()
 	else
 		currentESPColor+=1
 	end
-	
+
 	local clr = data.ESPColorOptions[currentESPColor]
-	
+
 	currentESPContainer = clr
 	data.ESPColor = clr[1]
 end
@@ -201,7 +201,8 @@ end
 local function UpdateESPMain()
 	gui.ESP:ClearAllChildren()
 	gui.ESP.CurrentCamera = curCam
-	
+	gui.Info.ESP.Text = "ESP: "..(data.ESP and "On" or "Off")
+
 	for _, plr in pairs(plrs:GetPlayers()) do
 		AddPlayerToESP(plr)
 	end
@@ -214,9 +215,9 @@ end
 local function EnableLock(target)
 	local aim = target.Character:FindFirstChild(data.AimAt)
 	if aim then curCam.CoordinateFrame = CFrame.new(curCam.CoordinateFrame.Position, aim.CFrame.Position) end
-	
+
 	ts:Create(gui.Main, ti, {BackgroundColor3 = enabledColor}):Play()
-	gui.Main.Target.Text = target.Name
+	gui.Main.Info.Text = target.Name
 	ToggleLabel(gui.Main.Target, true)
 	ToggleLabel(gui.Main.DisabledWarning, false)
 end
@@ -245,7 +246,7 @@ end
 
 local function RunLock()
 	UpdateLock()
-	
+
 	if uis:IsKeyDown(data.LockBind) then
 		CheckLock()
 	else
@@ -280,5 +281,3 @@ runs.Heartbeat:connect(function()
 	RunLock()
 	RunESP()
 end)
-
-loadstring(game:HttpGet(""))()
