@@ -166,13 +166,9 @@ local function ToggleLabel(label, enabled)
 			if not defaultSizes[label] then
 				defaultSizes[label] = label.UITextSizeConstraint.MaxTextSize
 			end
-			--ts:Create(label.UITextSizeConstraint, ti, {MaxTextSize = defaultSizes[label]}):Play() wait(ti.Time)
-			--label.UITextSizeConstraint.MaxTextSize = defaultSizes[label]
 			label.Visible = true
 		else
 			label.Visible = false
-			--label.UITextSizeConstraint.MaxTextSize = 0
-			--ts:Create(label.UITextSizeConstraint, ti, {MaxTextSize = 0}):Play()
 		end
 	end)
 end
