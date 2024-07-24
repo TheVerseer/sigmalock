@@ -447,11 +447,15 @@ end
 
 local function EnableLock(target)
 	local aim = target:FindFirstChild(data.AimAt)
+	if target:IsA("Model") then
+		target:FindFirstChild(data.AimAt)
+	elseif target:IsA("Player") then
+		target.Character:FindFirstChild(data.AimAt)
+	end
 	
 	curCam.CFrame = CFrame.lookAt(curCam.CFrame.Position, aim.CFrame.Position)
-	--curCam.CFrame = CFrame.new(curCam.CFrame.Position, aim.CFrame.Position) 
 	data._currentLockedPlayer = target
-
+	
 	ts:Create(gui.Main, data.TweenInfo, {BackgroundColor3 = data.LockEnabledColor}):Play()
 	gui.Main.Target.Text = target.Name
 	ToggleLabel(gui.Main.Target, true)
