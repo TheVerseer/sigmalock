@@ -212,7 +212,7 @@ local function PlayerIsVisible(plr)
 		local _, onScreen = curCam:WorldToScreenPoint(plr.Character:FindFirstChild("HumanoidRootPart").Position)
 		return onScreen
 	elseif plr:IsA("Model") then
-		local _, onScreen = curCam:WorldToScreenPoint(plr.Character:FindFirstChild("HumanoidRootPart").Position)
+		local _, onScreen = curCam:WorldToScreenPoint(plr:FindFirstChild("HumanoidRootPart").Position)
 		return onScreen
 	end
 end
