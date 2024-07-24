@@ -22,7 +22,7 @@ local defaultSettings = {
 	["FreeForAll"] = false,
 	["TeamsToSkip"] = {},
 	
-	["RunForRigs"] = false,
+	["RunForRigs"] = true,
 	
 	["AimAt"] = "Head",
 	["AimAtOptions"] = {"Head", "Torso", "LowerTorso"},
@@ -115,7 +115,7 @@ end
 local function GetRigs()
 	local rigs = {}
 	for _, rig in pairs(workspace:GetDescendants()) do
-		if rig:IsA("Model") and rig:FindFirstChildOfClass("Humanoid") then
+		if rig:IsA("Model") and rig:FindFirstChildOfClass("Humanoid") and not plrs:GetPlayerFromCharacter(rig) then
 			table.insert(rigs, rig)
 		end
 	end
@@ -448,7 +448,8 @@ end
 local function EnableLock(target)
 	local aim = target:FindFirstChild(data.AimAt)
 	
-	curCam.CFrame = CFrame.new(curCam.CFrame.Position, aim.CFrame.Position) 
+	curCam.CFrame = CFrame.lookAt(curCam.CFrame.Position, aim.CFrame.Position)
+	--curCam.CFrame = CFrame.new(curCam.CFrame.Position, aim.CFrame.Position) 
 	data._currentLockedPlayer = target
 
 	ts:Create(gui.Main, data.TweenInfo, {BackgroundColor3 = data.LockEnabledColor}):Play()
