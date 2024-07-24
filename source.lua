@@ -22,7 +22,7 @@ local defaultSettings = {
 	["FreeForAll"] = false,
 	["TeamsToSkip"] = {},
 	
-	["RunForRigs"] = true,
+	["RunForRigs"] = false,
 	
 	["AimAt"] = "Head",
 	["AimAtOptions"] = {"Head", "Torso", "LowerTorso"},
@@ -93,10 +93,6 @@ local disabledText = `Hold "{data.LockBind.Name}" to Enable`
 --------------------------------------------------------------------------------------
 
 local function CanLockPlayer(plr)
-	if data._currentLockedPlayer then
-		return false
-	end
-	
 	if plr and plr:IsA("Player") then
 		if plr ~= player then
 			if plr.Team ~= player.Team then
@@ -446,11 +442,11 @@ end
 --------------------------------------------------------------------------------------
 
 local function EnableLock(target)
-	local aim = target:FindFirstChild(data.AimAt)
+	local aim
 	if target:IsA("Model") then
-		target:FindFirstChild(data.AimAt)
+		aim = target:FindFirstChild(data.AimAt)
 	elseif target:IsA("Player") then
-		target.Character:FindFirstChild(data.AimAt)
+		aim = target.Character:FindFirstChild(data.AimAt)
 	end
 	
 	curCam.CFrame = CFrame.lookAt(curCam.CFrame.Position, aim.CFrame.Position)
@@ -472,7 +468,11 @@ end
 local function CheckLock()
 	local target = FindBestPlayerToLock()
 	if target then
-		EnableLock(target)
+		if data._currentLockedPlayer then
+			EnableLock(data._currentLockedPlayer)
+		else
+			EnableLock(target)
+		end
 	else
 		DisableLock()
 	end
