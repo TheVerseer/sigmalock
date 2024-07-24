@@ -1,15 +1,13 @@
 local gui
 
-if game:GetService("RunService"):IsStudio() then
-	gui = script.Parent:FindFirstChild("Lock_Gui") or game:GetObjects('rbxassetid://18622836850')[1] 
-else
-	gui = game:GetObjects('rbxassetid://18622836850')[1]
-end 
-
+--if game:GetService("RunService"):IsStudio() then
+--	gui = script.Parent:FindFirstChild("Lock_Gui") or game:GetObjects('rbxassetid://18622836850')[1] 
+--end 
 --[[
 	IGNORE: USED FOR DEBUGGING
 ]]
 
+gui = game:GetObjects('rbxassetid://18622836850')[1]
 gui.Parent = game.Players.LocalPlayer.PlayerGui
 
 local defaultSettings = {
