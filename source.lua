@@ -20,7 +20,7 @@ local defaultSettings = {
 	["FreeForAll"] = false,
 	["TeamsToSkip"] = {},
 	
-	["RunForRigs"] = false,
+	["RunForRigs"] = true,
 	
 	["AimAt"] = "Head",
 	["AimAtOptions"] = {"Head", "Torso", "LowerTorso"},
@@ -29,7 +29,7 @@ local defaultSettings = {
 	["ESPRefreshInterval"] = 10,
 	
 	["ESPDefaultColor"] = Color3.fromRGB(255, 0, 0),
-	["ESPDefaultColor_NPC"] = Color3.fromRGB(0, 255, 0),
+	["ESPDefaultColor_NPC"] = Color3.fromRGB(125, 125, 125),
 	["ESPFillTransparency_Visible"] = 0.8,
 	["ESPOutlineTransparency_Visible"] = 0.4,
 	["ESPFillTransparency_NonVisible"] = 0.4,
@@ -91,7 +91,7 @@ local disabledText = `Hold "{data.LockBind.Name}" to Enable`
 --------------------------------------------------------------------------------------
 
 local function CanLockPlayer(plr)
-	if plr and plr:IsA("Player") then
+	if plr and plr:IsA("Player") and plr.Character and plr.Character.Humanoid.Health > 0 then
 		if plr ~= player then
 			if plr.Team ~= player.Team then
 				return true
@@ -191,7 +191,7 @@ local function GetPlayersNearLocalPlayer()
 	for _, plr in pairs(plrs:GetPlayers()) do
 		local character = plr.Character
 		if character then
-			local distance = (character.HumanoidRootPart.Position - localPosition).Magnitude
+			local distance = (character.HumanoidRootPart.Position - localCharacter.HumanoidRootPart.Position).Magnitude
 			table.insert(playersNearLocalPlayer, {plr, distance})
 		end
 	end
@@ -209,10 +209,10 @@ end
 
 local function PlayerIsVisible(plr)
 	if plr:IsA("Player") then
-		local _, onScreen = curCam:WorldToViewportPoint(plr.Character.HumanoidRootPart.Position)
+		local _, onScreen = curCam:WorldToScreenPoint(plr.Character:FindFirstChild("HumanoidRootPart").Position)
 		return onScreen
 	elseif plr:IsA("Model") then
-		local _, onScreen = curCam:WorldToViewportPoint(plr.HumanoidRootPart.Position)
+		local _, onScreen = curCam:WorldToScreenPoint(plr.Character:FindFirstChild("HumanoidRootPart").Position)
 		return onScreen
 	end
 end
