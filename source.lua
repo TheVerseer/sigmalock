@@ -1,13 +1,10 @@
-local gui
+--local gui = script.Parent:FindFirstChild("Lock_Gui") or game:GetObjects('rbxassetid://18622836850')[1] 
 
---if game:GetService("RunService"):IsStudio() then
---	gui = script.Parent:FindFirstChild("Lock_Gui") or game:GetObjects('rbxassetid://18622836850')[1] 
---end 
 --[[
 	IGNORE: USED FOR DEBUGGING
 ]]
 
-gui = game:GetObjects('rbxassetid://18622836850')[1]
+local gui = game:GetObjects('rbxassetid://18622836850')[1]
 gui.Parent = game.Players.LocalPlayer.PlayerGui
 
 local defaultSettings = {
@@ -20,7 +17,9 @@ local defaultSettings = {
 	["FreeForAll"] = false,
 	["TeamsToSkip"] = {},
 	
-	["RunForRigs"] = true,
+	["RunForRigs"] = false,
+	
+	["LockMaxDistance"] = 500,
 	
 	["AimAt"] = "Head",
 	["AimAtOptions"] = {"Head", "Torso", "LowerTorso"},
@@ -29,9 +28,9 @@ local defaultSettings = {
 	["ESPRefreshInterval"] = 10,
 	
 	["ESPDefaultColor"] = Color3.fromRGB(255, 0, 0),
-	["ESPDefaultColor_NPC"] = Color3.fromRGB(125, 125, 125),
-	["ESPFillTransparency_Visible"] = 0.8,
-	["ESPOutlineTransparency_Visible"] = 0.4,
+	["ESPDefaultColor_NPC"] = Color3.fromRGB(0, 255, 0),
+	["ESPFillTransparency_Visible"] = 0.6,
+	["ESPOutlineTransparency_Visible"] = 0.3,
 	["ESPFillTransparency_NonVisible"] = 0.4,
 	["ESPOutlineTransparency_NonVisible"] = 0.2,
 
@@ -43,7 +42,7 @@ local defaultSettings = {
 
 	["_currentAimAtPart"] = 0,
 	["_currentESPColor"] = 0,
-	["_currentLockedPlayer"] = nil,
+	["_currentLockedPlayer"] = false,
 	
 	["_DEBUG"] = false
 }
@@ -90,19 +89,27 @@ local disabledText = `Hold "{data.LockBind.Name}" to Enable`
 
 --------------------------------------------------------------------------------------
 
-local function CanLockPlayer(plr)
-	if plr and plr:IsA("Player") and plr.Character and plr.Character.Humanoid.Health > 0 then
-		if plr ~= player then
-			if plr.Team ~= player.Team then
+local function GetDistanceMagnitude(p1, p2)
+	return (p1 - p2).Magnitude
+end
+
+local function CanLockCharacter(char)
+	local plr = plrs:GetPlayerFromCharacter(char)
+
+		if plr then
+			if plr ~= player then
+				if plr.Team ~= player.Team then
+					return true
+				else
+					return data.FreeForAll
+				end
+			end
+		else
+			if data.RunForRigs then
 				return true
-			else
-				return data.FreeForAll
 			end
 		end
-	elseif plr:IsA("Model") then
-		return true
-	end
-	
+
 	return false
 end
 
@@ -113,7 +120,7 @@ local function GetRigs()
 			table.insert(rigs, rig)
 		end
 	end
-	return rigs
+	return (data.RunForRigs and rigs or {})
 end
 
 local function ClearInstanceOfClass(i,c,d)
@@ -159,126 +166,84 @@ local function CycleAimPart()
 	data.AimAt = data.AimAtOptions[data._currentAimAtPart]
 end
 
+local function CharacterIsVisible(char)
+	local cPos = char:FindFirstChild("Head").CFrame.Position
+
+	return table.pack(curCam:WorldToScreenPoint(cPos))[2]
+
+	--if not table.pack(curCam:WorldToScreenPoint(cPos))[2] then
+	--	return false
+	--end
+	--
+	--local hit = table.pack(workspace:FindPartOnRay(Ray.new(curCam.CFrame.Position, (cPos - curCam.CFrame.Position).unit * 500)))
+	--if hit[1] and hit[1]:IsDescendantOf(char) then
+	--	return true
+	--end
+	--
+	--return false
+end
+
 --------------------------------------------------------------------------------------
 
-local function GetPlayersNearMouse()
-	local playersNearMouse = {}
+local function GetCharacterToLock()
+	local foundChar, foundDis = false, data.LockMaxDistance
+	
+	local nonVisibleCharacters = {}
+	local visibleCharacters = {}
+	
 	for _, plr in pairs(plrs:GetPlayers()) do
-		local character = plr.Character
-		if character then
-			local distance = (character.HumanoidRootPart.Position - mouse.Hit.Position).Magnitude
-			table.insert(playersNearMouse, {plr, distance})
+		if CanLockCharacter(plr.Character) then
+			if CharacterIsVisible(plr.Character) then
+				table.insert(visibleCharacters, {
+					char = plr.Character,
+					dis = GetDistanceMagnitude(plr.Character.HumanoidRootPart.Position, mouse.Hit.Position),
+				})
+			else
+				table.insert(nonVisibleCharacters, {
+					char = plr.Character,
+					dis = GetDistanceMagnitude(plr.Character.HumanoidRootPart.Position, mouse.Hit.Position),
+				})
+			end
 		end
 	end
+	
 	if data.RunForRigs then
 		for _, rig in pairs(GetRigs()) do
-			if rig then
-				local distance = (rig.HumanoidRootPart.Position - mouse.Hit.Position).Magnitude
-				table.insert(playersNearMouse, {rig, distance, true})
+			if CanLockCharacter(rig) then
+				if CharacterIsVisible(rig) then
+					table.insert(visibleCharacters, {
+						char = rig,
+						dis = GetDistanceMagnitude(rig.HumanoidRootPart.Position, mouse.Hit.Position),
+					})
+				else
+					table.insert(nonVisibleCharacters, {
+						char = rig,
+						dis = GetDistanceMagnitude(rig.HumanoidRootPart.Position, mouse.Hit.Position),
+					})
+				end
 			end
 		end
 	end
-	table.sort(playersNearMouse, function(a, b) return a[2] < b[2] end)
-	return playersNearMouse
+	
+	table.sort(nonVisibleCharacters, function(a, b) return math.floor(a.dis + 0.5) < math.floor(b.dis + 0.5) end)
+	table.sort(visibleCharacters, function(a, b) return math.floor(a.dis + 0.5) < math.floor(b.dis + 0.5) end)
+	
+	for _, entry in pairs(visibleCharacters) do
+		if entry.dis < foundDis then
+			foundChar = entry.char
+			foundDis = entry.dis
+		end
+	end
+	
+	for _, entry in pairs(nonVisibleCharacters) do
+		if entry.dis < foundDis then
+			foundChar = entry.char
+			foundDis = entry.dis
+		end
+	end
+	
+	return foundChar
 end
-
-local function GetPlayersNearLocalPlayer()
-	local playersNearLocalPlayer = {}
-	local localCharacter = player.Character
-	if not localCharacter then return playersNearLocalPlayer end
-	local localPosition = localCharacter.HumanoidRootPart.Position
-
-	for _, plr in pairs(plrs:GetPlayers()) do
-		local character = plr.Character
-		if character then
-			local distance = (character.HumanoidRootPart.Position - localCharacter.HumanoidRootPart.Position).Magnitude
-			table.insert(playersNearLocalPlayer, {plr, distance})
-		end
-	end
-	if data.RunForRigs then
-		for _, rig in pairs(GetRigs()) do
-			if rig then
-				local distance = (rig.HumanoidRootPart.Position - localPosition).Magnitude
-				table.insert(playersNearLocalPlayer, {rig, distance, true})
-			end
-		end
-	end
-	table.sort(playersNearLocalPlayer, function(a, b) return a[2] < b[2] end)
-	return playersNearLocalPlayer
-end
-
-local function PlayerIsVisible(plr)
-	if plr:IsA("Player") then
-		local _, onScreen = curCam:WorldToScreenPoint(plr.Character:FindFirstChild("HumanoidRootPart").Position)
-		return onScreen
-	elseif plr:IsA("Model") then
-		local _, onScreen = curCam:WorldToScreenPoint(plr:FindFirstChild("HumanoidRootPart").Position)
-		return onScreen
-	end
-end
-
-local function FindBestPlayerToLock()
-	local playersNearMouse = GetPlayersNearMouse()
-	local playersNearLocalPlayer = GetPlayersNearLocalPlayer()
-
-	for _, entry in pairs(playersNearMouse) do
-		if entry[3] or CanLockPlayer(entry[1]) then
-			if PlayerIsVisible(entry[1]) then
-				return entry[1]
-			end
-		end
-	end
-
-	for _, entry in pairs(playersNearLocalPlayer) do
-		if entry[3] or CanLockPlayer(entry[1]) then
-			if PlayerIsVisible(entry[1]) then
-				return entry[1]
-			end
-		end
-	end
-
-	return false
-end
-
---[[
-local function GetNearestPlayerToMouse()
-	local plrHold = {}
-	local distances = {}
-
-	for i, v in pairs(plrs:GetPlayers()) do
-		if CanLockPlayer(v) then
-			local aim = v.Character:FindFirstChild(data.AimAt)
-			if aim ~= nil then
-				local dis = (aim.Position - game.Workspace.CurrentCamera.CoordinateFrame.p).magnitude
-				local ray = Ray.new(game.Workspace.CurrentCamera.CoordinateFrame.p, (mouse.Hit.p - curCam.CoordinateFrame.p).unit * dis)
-				local hit,pos = game.Workspace:FindPartOnRay(ray, game.Workspace)
-				local diff = math.floor((pos - aim.Position).magnitude)
-				plrHold[v.Name .. i] = {}
-				plrHold[v.Name .. i].dis= dis
-				plrHold[v.Name .. i].plr = v
-				plrHold[v.Name .. i].diff = diff
-				table.insert(distances, diff)
-			end
-		end
-	end
-
-	if unpack(distances) == nil then
-		return false
-	end
-
-	local dis = math.floor(math.min(unpack(distances)))
-	if dis > 20 then
-		return false
-	end
-
-	for i, v in pairs(plrHold) do
-		if v.diff == dis then
-			return v.plr
-		end
-	end
-	return false
-end
-]]
 
 --------------------------------------------------------------------------------------
 
@@ -292,121 +257,96 @@ local function ToggleESP(enabled)
 	end
 end
 
-local function RemoveESP(plr, npc)
-	if not npc then
-		if currentESP[plr.Name] then
-			currentESP[plr.Name]:Destroy()
-			currentESP[plr.Name] = nil
-		end
-	else
-		if currentESP[plr] then
-			currentESP[plr]:Destroy()
-			currentESP[plr] = nil
-		end
+local function RemoveESP(char)
+	if currentESP[char] then
+		currentESP[char]:Destroy()
+		currentESP[char] = nil
 	end
 end
 
-local function AddESP(plr)
-	if plr:IsA("Player") then
-		if CanLockPlayer(plr) then
-			RemoveESP(plr)
+local function AddESP(char)
+	if CanLockCharacter(char) then
+		RemoveESP(char)
+		
+		local plr = plrs:GetPlayerFromCharacter(char)
+		local espFolder = gui.ESP:Clone()
 
-			local espFolder = gui.ESP:Clone()
+		espFolder.Name = char.Name
+		espFolder.Parent = gui
+		espFolder.ESP_Billboard.Title.Text = char.Name
 
-			espFolder.Name = plr.Name
-			espFolder.Parent = plr.Character
-			espFolder.ESP_Billboard.Title.Text = plr.Name
+		currentESP[char] = espFolder
 
-			currentESP[plr.Name] = espFolder
-
-			if plr.Team then
-				espFolder.ESP_Highlight.FillColor = plr.TeamColor.Color
-				espFolder.ESP_Highlight.OutlineColor = plr.TeamColor.Color
-				espFolder.ESP_Billboard.Title.TextColor3 = plr.TeamColor.Color
-			else
+		if plr and plr.Team then
+			espFolder.ESP_Highlight.FillColor = plr.TeamColor.Color
+			espFolder.ESP_Highlight.OutlineColor = plr.TeamColor.Color
+			espFolder.ESP_Billboard.Title.TextColor3 = plr.TeamColor.Color
+		else
+			if plr then
 				espFolder.ESP_Highlight.FillColor = data.ESPDefaultColor
 				espFolder.ESP_Highlight.OutlineColor = data.ESPDefaultColor
 				espFolder.ESP_Billboard.Title.TextColor3 = data.ESPDefaultColor
+			else
+				espFolder.ESP_Highlight.FillColor = data.ESPDefaultColor_NPC
+				espFolder.ESP_Highlight.OutlineColor = data.ESPDefaultColor_NPC
+				espFolder.ESP_Billboard.Title.TextColor3 = data.ESPDefaultColor_NPC
 			end
-
-			espFolder.ESP_Billboard.Enabled = data.ESP
-			espFolder.ESP_Highlight.Enabled = data.ESP
-			espFolder.ESP_Billboard.Adornee = plr.Character
-			espFolder.ESP_Highlight.Adornee = plr.Character
 		end
-	else
-		if data.RunForRigs then
-			RemoveESP(plr, true)
-			
-			local espFolder = gui.ESP:Clone()
 
-			espFolder.Name = plr.Name
-			espFolder.Parent = plr
-			espFolder.ESP_Billboard.Title.Text = plr.Name
-
-			currentESP[plr.Name] = espFolder
-
-			espFolder.ESP_Highlight.FillColor = data.ESPDefaultColor_NPC
-			espFolder.ESP_Highlight.OutlineColor = data.ESPDefaultColor_NPC
-			espFolder.ESP_Billboard.Title.TextColor3 = data.ESPDefaultColor_NPC
-
-			espFolder.ESP_Billboard.Enabled = data.ESP
-			espFolder.ESP_Highlight.Enabled = data.ESP
-			espFolder.ESP_Billboard.Adornee = plr
-			espFolder.ESP_Highlight.Adornee = plr
-		else
-			RemoveESP(plr, true)
-		end
+		espFolder.ESP_Billboard.Enabled = data.ESP
+		espFolder.ESP_Highlight.Enabled = data.ESP
+		espFolder.ESP_Billboard.Adornee = char
+		espFolder.ESP_Highlight.Adornee = char
 	end
 end
 
 local function LoadESP()
-	if player.PlayerGui:FindFirstChildOfClass("Highlight") then
-		ClearInstanceOfClass(player.PlayerGui,"Highlight",gui)
-	end
-	
-	for _, plr in pairs(plrs:GetPlayers()) do
-		if not table.find(currentPlayersESP, plr) then
-			AddESP(plr)
-			currentESPConnections[#currentESPConnections+1] = plr.CharacterAdded:Connect(function()
-				AddESP(plr)
+	local function loadPlr(plr)
+		if not currentPlayersESP[plr.Character] then
+			local char = plr.Character
+			AddESP(char)
+			currentESPConnections[#currentESPConnections+1] = plr.CharacterAdded:Connect(function(c)
+				char = c
+				AddESP(char)
 			end)
 			currentESPConnections[#currentESPConnections+1] = plr:GetPropertyChangedSignal("Team"):Connect(function()
-				AddESP(plr)
+				AddESP(char)
 			end)
-			table.insert(currentPlayersESP, plr)
+			currentPlayersESP[char] = true
 		end
+	end
+	local function deloadPlr(plr)
+		RemoveESP(plr.Character)
+		currentPlayersESP[plr.Character] = nil
 	end
 	
 	for _, rig in pairs(GetRigs()) do
-		if not table.find(currentPlayersESP, rig) then
+		if not currentPlayersESP[rig] then
 			AddESP(rig)
-			table.insert(currentPlayersESP, rig)
+			currentPlayersESP[rig] = true
 		end
 	end
 	
+	for _, plr in pairs(plrs:GetPlayers()) do
+		loadPlr(plr)
+	end
+	
 	currentESPConnections[#currentESPConnections+1] = plrs.PlayerAdded:Connect(function(plr)
-		if not table.find(currentPlayersESP, plr) then
-			AddESP(plr)
-			currentESPConnections[#currentESPConnections+1] = plr.CharacterAdded:Connect(function()
-				AddESP(plr)
-			end)
-			currentESPConnections[#currentESPConnections+1] = plr:GetPropertyChangedSignal("Team"):Connect(function()
-				AddESP(plr)
-			end)
-			table.insert(currentPlayersESP, plr)
-		end
+		loadPlr(plr)
 	end)
 	
 	currentESPConnections[#currentESPConnections+1] = plrs.PlayerRemoving:Connect(function(plr)
-		RemoveESP(plr)
-		table.remove(currentPlayersESP, table.find(currentPlayersESP, plr))
+		deloadPlr(plr)
 	end)
 end
 
 local function RefreshESP()
-	for _, p in pairs(currentESP) do
-		RemoveESP(p)
+	if player.PlayerGui:FindFirstChildOfClass("Highlight") then
+		ClearInstanceOfClass(player.PlayerGui,"Highlight",gui)
+	end
+	
+	for char, _ in pairs(currentESP) do
+		RemoveESP(char)
 	end
 	for _, c in pairs(currentESPConnections) do
 		c:Disconnect()
@@ -420,32 +360,28 @@ local function RefreshESP()
 end
 
 local function UpdateESP()
-	for _, plr in pairs(plrs:GetPlayers()) do
-		if PlayerIsVisible(plr.Character) then
-			if currentESP[plr] and lastPlayerESPVisibilityChange[plr] == nil or lastPlayerESPVisibilityChange[plr] == false then
-				lastPlayerESPVisibilityChange[plr] = true
-				ts:Create(currentESP[plr].ESP_Highlight, data.TweenInfo, {FillTransparency = data.ESPFillTransparency_Visible}):Play()
-				ts:Create(currentESP[plr].ESP_Highlight, data.TweenInfo, {OutlineTransparency = data.ESPOutlineTransparency_Visible}):Play()
-			end
-		else
-			if currentESP[plr] and lastPlayerESPVisibilityChange[plr] == nil or lastPlayerESPVisibilityChange[plr] == true then
-				lastPlayerESPVisibilityChange[plr] = false
-				ts:Create(currentESP[plr].ESP_Highlight, data.TweenInfo, {FillTransparency = data.ESPFillTransparency_NonVisible}):Play()
-				ts:Create(currentESP[plr].ESP_Highlight, data.TweenInfo, {OutlineTransparency = data.ESPOutlineTransparency_NonVisible}):Play()
-			end
-		end
-	end
+	--for _, plr in pairs(plrs:GetPlayers()) do
+	--	local char = plr.Character
+	--	if CharacterIsVisible(char) then
+	--		if currentESP[char] and lastPlayerESPVisibilityChange[char] == false then
+	--			lastPlayerESPVisibilityChange[char] = true
+	--			ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {FillTransparency = data.ESPFillTransparency_Visible}):Play()
+	--			ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {OutlineTransparency = data.ESPOutlineTransparency_Visible}):Play()
+	--		end
+	--	else
+	--		if currentESP[char] and lastPlayerESPVisibilityChange[char] == true then
+	--			lastPlayerESPVisibilityChange[char] = false
+	--			ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {FillTransparency = data.ESPFillTransparency_NonVisible}):Play()
+	--			ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {OutlineTransparency = data.ESPOutlineTransparency_NonVisible}):Play()
+	--		end
+	--	end
+	--end
 end
 
 --------------------------------------------------------------------------------------
 
 local function EnableLock(target)
-	local aim
-	if target:IsA("Model") then
-		aim = target:FindFirstChild(data.AimAt)
-	elseif target:IsA("Player") then
-		aim = target.Character:FindFirstChild(data.AimAt)
-	end
+	local aim = target:FindFirstChild(data.AimAt)
 	
 	curCam.CFrame = CFrame.lookAt(curCam.CFrame.Position, aim.CFrame.Position)
 	data._currentLockedPlayer = target
@@ -457,20 +393,17 @@ local function EnableLock(target)
 end
 
 local function DisableLock()
-	data._currentLockedPlayer = nil
+	data._currentLockedPlayer = false
+	
 	ts:Create(gui.Main, data.TweenInfo, {BackgroundColor3 = data.LockDisabledColor}):Play()
 	ToggleLabel(gui.Main.Target, false)
 	ToggleLabel(gui.Main.DisabledWarning, true)
 end
 
 local function CheckLock()
-	local target = FindBestPlayerToLock()
+	local target = GetCharacterToLock()
 	if target then
-		if data._currentLockedPlayer then
-			EnableLock(data._currentLockedPlayer)
-		else
-			EnableLock(target)
-		end
+		EnableLock(data._currentLockedPlayer or target)
 	else
 		DisableLock()
 	end
@@ -503,10 +436,6 @@ end
 
 CycleAimPart()
 RefreshESP()
-
---if cgui:FindFirstChild(gui.Name) then
---	cgui:FindFirstChild(gui.Name):Destroy()
---end
 
 --------------------------------------------------------------------------------------
 
