@@ -33,10 +33,8 @@ local defaultSettings = {
 	
 	["ESPDefaultColor"] = Color3.fromRGB(255, 0, 0),
 	["ESPDefaultColor_NPC"] = Color3.fromRGB(0, 255, 0),
-	["ESPFillTransparency_Visible"] = 0.6,
-	["ESPOutlineTransparency_Visible"] = 0.3,
-	["ESPFillTransparency_NonVisible"] = 0.4,
-	["ESPOutlineTransparency_NonVisible"] = 0.2,
+	["ESPFillTransparency"] = 0.6,
+	["ESPOutlineTransparency"] = 0.3,
 
 	["LockEnabledColor"] = Color3.fromRGB(10, 100, 10),
 	["LockDisabledColor"] = Color3.fromRGB(100, 10, 10),
@@ -306,6 +304,10 @@ local function AddESP(char)
 			end
 		end
 
+		
+		espFolder.ESP_Highlight.FillTransparency = data.ESPFillTransparency
+		espFolder.ESP_Highlight.OutlineTransparency = data.ESPOutlineTransparency
+
 		espFolder.ESP_Billboard.Enabled = data.ESP
 		espFolder.ESP_Highlight.Enabled = data.ESP
 		espFolder.ESP_Billboard.Adornee = char
@@ -370,34 +372,6 @@ local function RefreshESP()
 	currentPlayersESP = {}
 	
 	LoadESP()
-end
-
-local function UpdateESP()
-	local function run(char)
-		if CharacterIsVisible(char) then
-			if currentESP[char] and lastPlayerESPVisibilityChange[char] == false then
-				lastPlayerESPVisibilityChange[char] = true
-				ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {FillTransparency = data.ESPFillTransparency_Visible}):Play()
-				ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {OutlineTransparency = data.ESPOutlineTransparency_Visible}):Play()
-			end
-		else
-			if currentESP[char] and lastPlayerESPVisibilityChange[char] == true then
-				lastPlayerESPVisibilityChange[char] = false
-				ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {FillTransparency = data.ESPFillTransparency_NonVisible}):Play()
-				ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {OutlineTransparency = data.ESPOutlineTransparency_NonVisible}):Play()
-			end
-		end
-	end
-	
-	
-	for _, plr in pairs(plrs:GetPlayers()) do
-		run(player.Character)
-	end
-	if data.RunForRigs then
-		for _, rig in pairs(GetRigs()) do
-			run(rig)
-		end
-	end
 end
 
 --------------------------------------------------------------------------------------
@@ -501,7 +475,6 @@ end)
 runs.Heartbeat:connect(function()
 	RunLock()
 	RunGui()
-	UpdateESP()
 	ToggleESP(data.ESP)
 	RunTriggerBot()
 end)
