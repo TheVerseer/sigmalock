@@ -1,8 +1,5 @@
 --local gui = script.Parent:FindFirstChild("Lock_Gui") or game:GetObjects('rbxassetid://18622836850')[1] 
-
---[[
-	IGNORE: USED FOR DEBUGGING
-]]
+--[[  IGNORE: USED FOR DEBUGGING  ]]
 
 local gui = game:GetObjects('rbxassetid://18622836850')[1]
 gui.Parent = game.Players.LocalPlayer.PlayerGui
@@ -13,14 +10,18 @@ local defaultSettings = {
 	["RefreshESPBind"] = Enum.KeyCode.RightAlt,
 	["AimSwitchBind"] = Enum.KeyCode.RightShift,
 	["FFASwitchBind"] = Enum.KeyCode.RightControl,
-	["TriggerBotBind"] = Enum.KeyCode.BackSlash,
-
+	["LockingTypeSwitchBind"] = Enum.KeyCode.BackSlash,
+	["TriggerBotSwitchBind"] = Enum.KeyCode.RightBracket,
+	
 	["FreeForAll"] = false,
 	["TeamsToSkip"] = {},
 	
 	["TriggerBot"] = false,
 	
-	["RunForRigs"] = false,
+	["RunForRigs"] = true,
+	
+	["LockingType"] = "Mouse",
+	["LockingOptions"] = {"Mouse", "Character"},
 	
 	["LockMaxDistance"] = 500,
 	
@@ -44,8 +45,8 @@ local defaultSettings = {
 	["TweenInfo"] = TweenInfo.new(0.1, Enum.EasingStyle.Exponential),
 
 	["_currentAimAtPart"] = 0,
-	["_currentESPColor"] = 0,
-	["_currentLockedPlayer"] = false,
+	["_currentLockingType"] = 0,
+	["_currentLockedCharacter"] = false,
 	
 	["_DEBUG"] = false
 }
@@ -169,6 +170,16 @@ local function CycleAimPart()
 	data.AimAt = data.AimAtOptions[data._currentAimAtPart]
 end
 
+local function CycleLockingType()
+	if data._currentLockingType+1 > #data.LockingOptions then 
+		data._currentLockingType = 1 
+	else
+		data._currentLockingType+=1
+	end
+
+	data.LockingType = data.LockingOptions[data._currentLockingType]
+end
+
 local function CharacterIsVisible(char)
 	local c = char:FindFirstChild(data.AimAt)
 
@@ -194,16 +205,18 @@ local function GetCharacterToLock()
 	
 	for _, plr in pairs(plrs:GetPlayers()) do
 		if CanLockCharacter(plr.Character) then
-			if CharacterIsVisible(plr.Character) then
-				table.insert(visibleCharacters, {
-					char = plr.Character,
-					dis = GetDistanceMagnitude(plr.Character.HumanoidRootPart.Position, mouse.Hit.Position),
-				})
+			local dis = nil
+
+			if data.LockingType == data.LockingOptions[1] then
+				dis = GetDistanceMagnitude(plr.Character.HumanoidRootPart.Position, player.Character.HumanoidRootPart.Position)
 			else
-				table.insert(nonVisibleCharacters, {
-					char = plr.Character,
-					dis = GetDistanceMagnitude(plr.Character.HumanoidRootPart.Position, mouse.Hit.Position),
-				})
+				dis = GetDistanceMagnitude(plr.Character.HumanoidRootPart.Position, mouse.Hit.Position)
+			end
+
+			if CharacterIsVisible(plr.Character) then
+				table.insert(visibleCharacters, {char = plr.Character, dis = dis,})
+			else
+				table.insert(nonVisibleCharacters, {char = plr.Character, dis = dis,})
 			end
 		end
 	end
@@ -211,16 +224,18 @@ local function GetCharacterToLock()
 	if data.RunForRigs then
 		for _, rig in pairs(GetRigs()) do
 			if CanLockCharacter(rig) then
-				if CharacterIsVisible(rig) then
-					table.insert(visibleCharacters, {
-						char = rig,
-						dis = GetDistanceMagnitude(rig.HumanoidRootPart.Position, mouse.Hit.Position),
-					})
+				local dis = nil
+
+				if data.LockingType == data.LockingOptions[1] then
+					dis = GetDistanceMagnitude(rig.HumanoidRootPart.Position, player.Character.HumanoidRootPart.Position)
 				else
-					table.insert(nonVisibleCharacters, {
-						char = rig,
-						dis = GetDistanceMagnitude(rig.HumanoidRootPart.Position, mouse.Hit.Position),
-					})
+					dis = GetDistanceMagnitude(rig.HumanoidRootPart.Position, mouse.Hit.Position)
+				end
+
+				if CharacterIsVisible(rig) then
+					table.insert(visibleCharacters, {char = rig, dis = dis,})
+				else
+					table.insert(nonVisibleCharacters, {char = rig, dis = dis,})
 				end
 			end
 		end
@@ -228,6 +243,11 @@ local function GetCharacterToLock()
 	
 	table.sort(nonVisibleCharacters, function(a, b) return math.floor(a.dis + 0.5) < math.floor(b.dis + 0.5) end)
 	table.sort(visibleCharacters, function(a, b) return math.floor(a.dis + 0.5) < math.floor(b.dis + 0.5) end)
+	
+	print(string.rep("-",10))
+	print(data.LockingType)
+	print(visibleCharacters)
+	print(nonVisibleCharacters)
 	
 	for _, entry in pairs(visibleCharacters) do
 		return entry.char
@@ -265,7 +285,7 @@ local function AddESP(char)
 		local espFolder = gui.ESP:Clone()
 
 		espFolder.Name = char.Name
-		espFolder.Parent = gui
+		espFolder.Parent = gui.CurrentESP
 		espFolder.ESP_Billboard.Title.Text = char.Name
 
 		currentESP[char] = espFolder
@@ -353,22 +373,31 @@ local function RefreshESP()
 end
 
 local function UpdateESP()
-	--for _, plr in pairs(plrs:GetPlayers()) do
-	--	local char = plr.Character
-	--	if CharacterIsVisible(char) then
-	--		if currentESP[char] and lastPlayerESPVisibilityChange[char] == false then
-	--			lastPlayerESPVisibilityChange[char] = true
-	--			ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {FillTransparency = data.ESPFillTransparency_Visible}):Play()
-	--			ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {OutlineTransparency = data.ESPOutlineTransparency_Visible}):Play()
-	--		end
-	--	else
-	--		if currentESP[char] and lastPlayerESPVisibilityChange[char] == true then
-	--			lastPlayerESPVisibilityChange[char] = false
-	--			ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {FillTransparency = data.ESPFillTransparency_NonVisible}):Play()
-	--			ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {OutlineTransparency = data.ESPOutlineTransparency_NonVisible}):Play()
-	--		end
-	--	end
-	--end
+	local function run(char)
+		if CharacterIsVisible(char) then
+			if currentESP[char] and lastPlayerESPVisibilityChange[char] == false then
+				lastPlayerESPVisibilityChange[char] = true
+				ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {FillTransparency = data.ESPFillTransparency_Visible}):Play()
+				ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {OutlineTransparency = data.ESPOutlineTransparency_Visible}):Play()
+			end
+		else
+			if currentESP[char] and lastPlayerESPVisibilityChange[char] == true then
+				lastPlayerESPVisibilityChange[char] = false
+				ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {FillTransparency = data.ESPFillTransparency_NonVisible}):Play()
+				ts:Create(currentESP[char].ESP_Highlight, data.TweenInfo, {OutlineTransparency = data.ESPOutlineTransparency_NonVisible}):Play()
+			end
+		end
+	end
+	
+	
+	for _, plr in pairs(plrs:GetPlayers()) do
+		run(player.Character)
+	end
+	if data.RunForRigs then
+		for _, rig in pairs(GetRigs()) do
+			run(rig)
+		end
+	end
 end
 
 --------------------------------------------------------------------------------------
@@ -377,7 +406,7 @@ local function EnableLock(target)
 	local aim = target:FindFirstChild(data.AimAt)
 	
 	curCam.CFrame = CFrame.lookAt(curCam.CFrame.Position, aim.CFrame.Position)
-	data._currentLockedPlayer = target
+	data._currentLockedCharacter = target
 	
 	ts:Create(gui.Main, data.TweenInfo, {BackgroundColor3 = data.LockEnabledColor}):Play()
 	gui.Main.Target.Text = target.Name
@@ -386,7 +415,7 @@ local function EnableLock(target)
 end
 
 local function DisableLock()
-	data._currentLockedPlayer = false
+	data._currentLockedCharacter = false
 	
 	ts:Create(gui.Main, data.TweenInfo, {BackgroundColor3 = data.LockDisabledColor}):Play()
 	ToggleLabel(gui.Main.Target, false)
@@ -396,8 +425,7 @@ end
 local function CheckLock()
 	local target = GetCharacterToLock()
 	if target then
-		--EnableLock(data._currentLockedPlayer or target)
-		EnableLock(target)
+		EnableLock(data._currentLockedCharacter or target)
 	else
 		DisableLock()
 	end
@@ -418,6 +446,7 @@ local function RunGui()
 	gui.Info.AimAt.Text = "AimAt: "..data.AimAt
 	gui.Info.ESP.Text = "ESP: "..(data.ESP and "On" or "Off")
 	gui.Info.FreeForAll.Text = "FFA: "..(data.FreeForAll and "On" or "Off")
+	gui.Info.LockingType.Text = "Type: "..data.LockingType
 
 	for _, frame in pairs(gui:GetChildren()) do
 		if frame:IsA("Frame") and frame.BackgroundTransparency ~= data.GuiTransparency then
@@ -435,11 +464,13 @@ end
 --------------------------------------------------------------------------------------
 
 CycleAimPart()
+CycleLockingType()
 RefreshESP()
 
 --------------------------------------------------------------------------------------
 
 uis.InputBegan:connect(function(input, gm)
+	if not gm then
 	if input.KeyCode == data.AimSwitchBind then
 		CycleAimPart()
 	end
@@ -452,8 +483,12 @@ uis.InputBegan:connect(function(input, gm)
 	if input.KeyCode == data.RefreshESPBind then
 		RefreshESP()
 	end
-	if input.KeyCode == data.TriggerBotBind then
+		if input.KeyCode == data.TriggerBotSwitchBind then
 		data.TriggerBot = not data.TriggerBot
+	end
+		if input.KeyCode == data.LockingTypeSwitchBind then
+			CycleLockingType()
+		end
 	end
 end)
 
