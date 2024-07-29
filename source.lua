@@ -13,9 +13,12 @@ local defaultSettings = {
 	["RefreshESPBind"] = Enum.KeyCode.RightAlt,
 	["AimSwitchBind"] = Enum.KeyCode.RightShift,
 	["FFASwitchBind"] = Enum.KeyCode.RightControl,
+	["TriggerBotBind"] = Enum.KeyCode.BackSlash,
 
 	["FreeForAll"] = false,
 	["TeamsToSkip"] = {},
+	
+	["TriggerBot"] = false,
 	
 	["RunForRigs"] = false,
 	
@@ -167,27 +170,25 @@ local function CycleAimPart()
 end
 
 local function CharacterIsVisible(char)
-	local cPos = char:FindFirstChild("Head").CFrame.Position
+	local c = char:FindFirstChild(data.AimAt)
 
-	return table.pack(curCam:WorldToScreenPoint(cPos))[2]
+	if c then
+		if not table.pack(curCam:WorldToScreenPoint(c.CFrame.Position))[2] then
+			return false
+		end
 
-	--if not table.pack(curCam:WorldToScreenPoint(cPos))[2] then
-	--	return false
-	--end
-	--
-	--local hit = table.pack(workspace:FindPartOnRay(Ray.new(curCam.CFrame.Position, (cPos - curCam.CFrame.Position).unit * 500)))
-	--if hit[1] and hit[1]:IsDescendantOf(char) then
-	--	return true
-	--end
-	--
-	--return false
+		local ray = workspace:Raycast(curCam.CFrame.Position, c.CFrame.Position - curCam.CFrame.Position)
+		if ray and ray.Instance == c then
+			return true
+		end
+	end
+	
+	return false
 end
 
 --------------------------------------------------------------------------------------
 
 local function GetCharacterToLock()
-	local foundChar, foundDis = false, data.LockMaxDistance
-	
 	local nonVisibleCharacters = {}
 	local visibleCharacters = {}
 	
@@ -229,20 +230,12 @@ local function GetCharacterToLock()
 	table.sort(visibleCharacters, function(a, b) return math.floor(a.dis + 0.5) < math.floor(b.dis + 0.5) end)
 	
 	for _, entry in pairs(visibleCharacters) do
-		if entry.dis < foundDis then
-			foundChar = entry.char
-			foundDis = entry.dis
-		end
+		return entry.char
 	end
 	
 	for _, entry in pairs(nonVisibleCharacters) do
-		if entry.dis < foundDis then
-			foundChar = entry.char
-			foundDis = entry.dis
-		end
+		return entry.char
 	end
-	
-	return foundChar
 end
 
 --------------------------------------------------------------------------------------
@@ -403,7 +396,8 @@ end
 local function CheckLock()
 	local target = GetCharacterToLock()
 	if target then
-		EnableLock(data._currentLockedPlayer or target)
+		--EnableLock(data._currentLockedPlayer or target)
+		EnableLock(target)
 	else
 		DisableLock()
 	end
@@ -432,6 +426,12 @@ local function RunGui()
 	end
 end
 
+local function RunTriggerBot()
+	if data.TriggerBot and mouse.Target and game.Players:GetPlayerFromCharacter(mouse.Target.Parent) and CanLockCharacter(mouse.Target.Parent) then
+		
+	end
+end
+
 --------------------------------------------------------------------------------------
 
 CycleAimPart()
@@ -452,6 +452,9 @@ uis.InputBegan:connect(function(input, gm)
 	if input.KeyCode == data.RefreshESPBind then
 		RefreshESP()
 	end
+	if input.KeyCode == data.TriggerBotBind then
+		data.TriggerBot = not data.TriggerBot
+	end
 end)
 
 task.spawn(function()
@@ -465,4 +468,5 @@ runs.Heartbeat:connect(function()
 	RunGui()
 	UpdateESP()
 	ToggleESP(data.ESP)
+	RunTriggerBot()
 end)
