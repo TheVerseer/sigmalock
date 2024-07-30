@@ -14,11 +14,8 @@ local defaultSettings = {
 	
 	["FreeForAll"] = false,
 	["TeamsToSkip"] = {},
-	
-	["TriggerBot"] = false,
-	
-	["RunForRigs"] = false,
-	
+
+	["AllowTargetSwitching"] = true,
 	["LockingType"] = "Mouse",
 	["LockingOptions"] = {"Mouse", "Character"},
 	
@@ -106,7 +103,7 @@ local function CanLockCharacter(char)
 			end
 		end
 	else
-		if data.RunForRigs then
+		if data._DEBUG then
 			return true
 		end
 	end
@@ -121,7 +118,7 @@ local function GetRigs()
 			table.insert(rigs, rig)
 		end
 	end
-	return (data.RunForRigs and rigs or {})
+	return (data._DEBUG and rigs or {})
 end
 
 local function ClearInstanceOfClass(i,c,d)
@@ -206,7 +203,7 @@ local function GetCharacterToLock()
 		end
 	end
 	
-	if data.RunForRigs then
+	if data._DEBUG then
 		for _, rig in pairs(GetRigs()) do
 			if CanLockCharacter(rig) then
 				local dis = nil
@@ -378,7 +375,7 @@ end
 local function CheckLock()
 	local target = GetCharacterToLock()
 	if target then
-		EnableLock(data._currentLockedCharacter or target)
+		EnableLock((data.AllowTargetSwitching and data._currentLockedCharacter) or target)
 	else
 		DisableLock()
 	end
