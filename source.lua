@@ -11,14 +11,13 @@ local defaultSettings = {
 	["AimSwitchBind"] = Enum.KeyCode.RightShift,
 	["FFASwitchBind"] = Enum.KeyCode.RightControl,
 	["LockingTypeSwitchBind"] = Enum.KeyCode.BackSlash,
-	["TriggerBotSwitchBind"] = Enum.KeyCode.RightBracket,
 	
 	["FreeForAll"] = false,
 	["TeamsToSkip"] = {},
 	
 	["TriggerBot"] = false,
 	
-	["RunForRigs"] = true,
+	["RunForRigs"] = false,
 	
 	["LockingType"] = "Mouse",
 	["LockingOptions"] = {"Mouse", "Character"},
@@ -98,19 +97,19 @@ end
 local function CanLockCharacter(char)
 	local plr = plrs:GetPlayerFromCharacter(char)
 
-		if plr then
-			if plr ~= player then
-				if plr.Team ~= player.Team then
-					return true
-				else
-					return data.FreeForAll
-				end
-			end
-		else
-			if data.RunForRigs then
+	if plr then
+		if plr ~= player then
+			if plr.Team ~= player.Team then
 				return true
+			else
+				return data.FreeForAll
 			end
 		end
+	else
+		if data.RunForRigs then
+			return true
+		end
+	end
 
 	return false
 end
@@ -181,24 +180,14 @@ end
 local function CharacterIsVisible(char)
 	local c = char:FindFirstChild(data.AimAt)
 
-	if c then
-		if not table.pack(curCam:WorldToScreenPoint(c.CFrame.Position))[2] then
-			return false
-		end
-
-		local ray = workspace:Raycast(curCam.CFrame.Position, c.CFrame.Position - curCam.CFrame.Position)
-		if ray and ray.Instance == c then
-			return true
-		end
-	end
-	
-	return false
+	local _, visible = curCam:WorldToScreenPoint(c.CFrame.Position)
+		
+	return visible
 end
 
 --------------------------------------------------------------------------------------
 
 local function GetCharacterToLock()
-	local nonVisibleCharacters = {}
 	local visibleCharacters = {}
 	
 	for _, plr in pairs(plrs:GetPlayers()) do
@@ -206,15 +195,13 @@ local function GetCharacterToLock()
 			local dis = nil
 
 			if data.LockingType == data.LockingOptions[1] then
-				dis = GetDistanceMagnitude(plr.Character.HumanoidRootPart.Position, player.Character.HumanoidRootPart.Position)
-			else
 				dis = GetDistanceMagnitude(plr.Character.HumanoidRootPart.Position, mouse.Hit.Position)
+			else
+				dis = GetDistanceMagnitude(plr.Character.HumanoidRootPart.Position, player.Character.HumanoidRootPart.Position)
 			end
 
 			if CharacterIsVisible(plr.Character) then
 				table.insert(visibleCharacters, {char = plr.Character, dis = dis,})
-			else
-				table.insert(nonVisibleCharacters, {char = plr.Character, dis = dis,})
 			end
 		end
 	end
@@ -225,33 +212,25 @@ local function GetCharacterToLock()
 				local dis = nil
 
 				if data.LockingType == data.LockingOptions[1] then
-					dis = GetDistanceMagnitude(rig.HumanoidRootPart.Position, player.Character.HumanoidRootPart.Position)
-				else
 					dis = GetDistanceMagnitude(rig.HumanoidRootPart.Position, mouse.Hit.Position)
+				else
+					dis = GetDistanceMagnitude(rig.HumanoidRootPart.Position, player.Character.HumanoidRootPart.Position)
 				end
 
 				if CharacterIsVisible(rig) then
 					table.insert(visibleCharacters, {char = rig, dis = dis,})
-				else
-					table.insert(nonVisibleCharacters, {char = rig, dis = dis,})
 				end
 			end
 		end
 	end
 	
-	table.sort(nonVisibleCharacters, function(a, b) return math.floor(a.dis + 0.5) < math.floor(b.dis + 0.5) end)
 	table.sort(visibleCharacters, function(a, b) return math.floor(a.dis + 0.5) < math.floor(b.dis + 0.5) end)
 	
-	print(string.rep("-",10))
-	print(data.LockingType)
-	print(visibleCharacters)
-	print(nonVisibleCharacters)
+	--print(string.rep("-",10))
+	--print(data.LockingType)
+	--print(visibleCharacters)
 	
 	for _, entry in pairs(visibleCharacters) do
-		return entry.char
-	end
-	
-	for _, entry in pairs(nonVisibleCharacters) do
 		return entry.char
 	end
 end
